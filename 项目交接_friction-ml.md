@@ -1,7 +1,7 @@
 # 项目交接文档 —— NAO 摩擦材料磨损率回归
 
 > **用途**：下次新开 Claude 会话时，把本文件内容作为第一条消息贴入，即可无缝续接。
-> **最后更新**：2026-07-18（**阶段 2 完结**：PDP 验形状 6/6 + 交互项马鞍面定量验收 r=0.825，7/7 机理全部找回）
+> **最后更新**：2026-07-22（**ML-05 环境迁移**：M4→M1，environment.yml 一键重建，Run All 逐点复现 r=0.825）
 
 ---
 
@@ -40,6 +40,12 @@
 - conda 环境名：`mat`（包全用 `pip` 装的，**别混用 conda install**）
 - 项目目录：`~/projects/friction-ml`
 - 已装：jupyterlab 4.6.1 / numpy 2.4.6 / pandas 2.3.3 / scikit-learn 1.9.0 / seaborn 0.13.2 / matplotlib
+- **环境可一键复现**：仓库已含 `environment.yml`（从 M4 的 mat 环境 `conda env export` 导出）。新机器上重建只需一条命令：
+  ```bash
+  conda env create -f environment.yml
+  ```
+  已在 M1（arm64）实测通过：M1 上 conda 用 **Miniforge（arm64 版）** 安装（Anaconda 官方版对机构有授权限制，Miniforge 干净精简、原生 Apple Silicon）；建好后 Run All 结果与 M4 逐点一致（r=0.825、k=0.575 分毫不差）。
+- **跨机说明**：M4 与 M1 均为 Apple Silicon（arm64 同架构），同版本包 + 同 random_state → 结果可完全复现。搬仓走 AirDrop（整个 `friction-ml` 文件夹连 `.git` 一起搬，历史不丢）。
 - **开工老三样**：
   ```bash
   conda activate mat
@@ -326,6 +332,8 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 - 仓库：`~/projects/friction-ml`（本地，**GitHub 远程未推**，SSH key 未配 → 阶段 4）
 - Commit 历史（**已全部提交，无未存工作**）：
   ```
+  9abaa86  chore: 移除 01_eda.ipynb 中运行报错的死代码           ← 07-22
+  23a31bc  chore: 添加 environment.yml 环境配方单                ← 07-22
   66abf49  阶段2完成：GBDT调参 + 特征重要性 + PDP机理验收 7/7   ← 07-18
   adc681d  添加项目交接文档
   6fe8594  基线模型：线性回归R²=0.735 vs 随机森林R²=0.627(默认参数过拟合)
@@ -352,6 +360,7 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 - [ ] log 空间 R² 如何正确解读成磨损率精度（决策 A 遗留）
 - [ ] 结论整理 / 论文图表清单
 - [ ] 配 SSH key，推 GitHub
+- [x] ~~环境可复现~~ ✅ 已完成（ML-05）：`environment.yml` 进仓库，新机 `conda env create -f environment.yml` 一键重建；M1 已配 Miniforge、mat 环境已建、Run All 复现通过
 
 ---
 
@@ -361,10 +370,11 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 - NAO摩擦材料ML-02-基线模型(EDA收尾+线性vs随机森林)（07-15）
 - NAO摩擦材料ML-03-阶段2机理验收(RF/GBDT调参+特征重要性+置换重要性)（07-16）
 - **NAO摩擦材料ML-04-PDP验形状+交互项马鞍面定量验收(r=0.825)（07-18，本次，阶段2完结）**
-- （下次）NAO摩擦材料ML-05-阶段3成分数据对数比变换(CLR/ILR) …
+- **NAO摩擦材料ML-05-环境迁移M4→M1(environment.yml一键重建, Run All逐点复现r=0.825)（07-22，本次）**
+- （下次）NAO摩擦材料ML-06-阶段3成分数据对数比变换(CLR/ILR) …
 
 ---
 
 ## 9. 下次开场白（建议直接说）
 
-> 「继续这个项目（ML-05）。阶段 2 已完结（7/7 机理找回）。今天开阶段 3：成分数据的对数比变换。先给我讲清楚**闭合数据为什么需要 CLR/ILR**、它到底治好了什么病，我听懂了再动手写代码。」
+> 「继续这个项目（ML-06）。阶段 2 已完结（7/7 机理找回），环境已可 `environment.yml` 一键复现（ML-05）。今天开阶段 3：成分数据的对数比变换。先给我讲清楚**闭合数据为什么需要 CLR/ILR**、它到底治好了什么病，我听懂了再动手写代码。」
