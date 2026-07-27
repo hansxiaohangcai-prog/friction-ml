@@ -1,7 +1,7 @@
 # 项目交接文档 —— NAO 摩擦材料磨损率回归
 
 > **用途**：下次新开 Claude 会话时，把本文件内容作为第一条消息贴入，即可无缝续接。
-> **最后更新**：2026-07-25（**ML-07 EDA 分布图 cell 精读**：决策 A 举证现场读完，偏度 3.135→0.063；确立"每个 cell 都读、不跳"的新学习路线，见 §0.1）
+> **最后更新**：2026-07-27（**ML-08 M1 接入 GitHub 链路**：双机 SSH 配通、clone + CSV 再生验证 r=0.8253 逐点复现；确立「数据不进仓库、clone 后脚本再生」策略；Git 节奏升级为「开工 pull / 收工 push」，见 §6）
 
 ---
 
@@ -22,10 +22,11 @@
 - 触发时机：每完成一个有实质产出的小节就提醒一次（拿到一个新结果、跑通一张关键图、确立一个新结论），**不要攒到收工才提**
 - 提醒时必须**连同完整命令一起给出**，我直接复制粘贴，不用自己想怎么写：
   - 先提醒我在 Jupyter 里 **⌘S 保存**（Git 存的是硬盘文件，不是内存）
-  - 再给 `git add ... ` → `git status` → `git commit -m "..."` 全套
-  - commit message 由你起草：**标题一行讲清做了什么，正文列出关键数字**（R²、r、参数等），别写「更新代码」这种废话
+  - 再给 `git add ...` → `git status` → `git commit -m "..."` → **`git push`** 全套（**07-27 起节奏升级为四步**：GitHub 已配通，收工必 push，另一台机器才拉得到）
+- commit message 由你起草：**标题一行讲清做了什么，正文列出关键数字**（R²、r、参数等），别写「更新代码」这种废话
 - 原因（07-18 的教训）：两天工作堆在同一个 `.ipynb` 里，Git 无法拆成两笔 commit，历史就糊了
 - **例外**（07-23 新增）：纯读代码 / 纯讨论的会话不动硬盘文件，`git status` 是干净的，**不需要也不应该 commit**。别为了「今天有产出」硬造一笔空提交
+- **例外补充**（07-27 新增）：Run All 只改执行序号 `[n]` 等元数据、代码零改动时，属于**噪声不值一笔 commit**，用 `git restore 01_eda.ipynb` 擦掉，保持工作树干净
 
 **约定 2：每次收工时，给出本次会话的建议命名**
 
@@ -75,14 +76,18 @@
   conda env create -f environment.yml
   ```
   已在 M1（arm64）实测通过：M1 上 conda 用 **Miniforge（arm64 版）** 安装（Anaconda 官方版对机构有授权限制，Miniforge 干净精简、原生 Apple Silicon）；建好后 Run All 结果与 M4 逐点一致（r=0.825、k=0.575 分毫不差）。
-- **跨机说明**：M4 与 M1 均为 Apple Silicon（arm64 同架构），同版本包 + 同 random_state → 结果可完全复现。搬仓走 AirDrop（整个 `friction-ml` 文件夹连 `.git` 一起搬，历史不丢）。
-- **开工老三样**：
+- **跨机同步（07-27 升级）**：~~AirDrop 搬文件夹~~ **已退役**，改为 **GitHub 为唯一真相源**（配置详见 §6）。M4 与 M1 均为 Apple Silicon（arm64 同架构），同版本包 + 同 random_state → 结果可完全复现（07-27 经 GitHub 链路 clone 后实测：r=0.8253、k=0.575 与基准逐点一致）。
+- **开工四样（07-27 起，原「老三样」+ git pull）**：
   ```bash
   conda activate mat
-  cd ~/projects/friction-ml && jupyter lab
+  cd ~/projects/friction-ml
+  git pull
+  jupyter lab
   ```
   打开 `01_eda.ipynb` → 菜单 Run → Run All Cells（kernel 重启后变量清空，必须重跑）
+  - `git pull`：把另一台机器上次 push 的更新拉下来，**开工必做**
   - `cd` 那一步**不是可有可无**：全项目用的是相对路径（`pd.read_csv("friction_formulation.csv")`），当前目录不对就 `FileNotFoundError`
+- **收工四步（07-27 起）**：⌘S 保存 → `git add` → `git status` → `git commit` → **`git push`**（只 commit 不 push，提交只在本地，另一台机器拉不到——双机模式唯一的坑）
 
 > ⚠️ 所有模型对象（best_gb / best_gb_v2 / PDP 结果）都只在 `01_eda.ipynb` 里、靠 Run All 重建。开工第一件事永远是 Run All。
 > 例外：**纯读代码的会话不用 Run All**，省几十秒。
@@ -111,8 +116,7 @@
 - 拯救者 CPU 多核确实可能快 1.2–1.5×（30 s → 15–20 s），**但代价远大于收益**：
   1. 换 x86 架构 → 从「确定逐点一致」退到「应该一致」，ML-05 刚建立的可复现性打折
   2. PowerShell ≠ zsh，零基础学来的命令行手感要重学
-  3. 三台机器 + **GitHub 远程还没配**，靠 AirDrop 同步迟早岔开 Git 历史
-- **真想多机协作，正确顺序是先配 SSH key 推 GitHub（阶段 4 待办），而不是先加机器**
+  3. ~~三台机器 + GitHub 远程还没配~~（07-27 更新：GitHub 已配通，但仍不建议加第三台 x86 机器，理由 1、2 依然成立）
 - 本项目天花板在**数据信噪比**（200 条 + 18 个噪声特征），不在算力 —— 换机器解决不了信噪比（见 §2 决策 D）
 
 ### 已踩过的环境坑（省时间）
@@ -125,6 +129,9 @@
 | 要同时跑 Jupyter 和终端命令 | 终端里 **⌘T** 开新标签页；跑 Jupyter 那个标签**别关别 Ctrl+C** |
 | cell 左边 `[23]` 以为是「第 23 个 cell」（07-23 误解，已纠正） | 它是**执行序号**：本次 kernel 启动以来第几次执行，**与位置无关、只增不减**，且会随 ⌘S 一起**存进 .ipynb 文件**。`[ ]`=从没跑过，`[*]`=正在跑，`[n]`=跑完 |
 | 序号乱序 / 跳跃（上面 17、下面 5） | 说明跳着跑过，内存里可能是老变量 → **结果不可信**。归零：Run All，或 Kernel → Restart Kernel and Clear Outputs |
+| **（07-27 新）clone 后 Run All 报 `FileNotFoundError: friction_formulation.csv`** | **不是 bug，是数据策略**：CSV 被 `.gitignore` 拦住不进仓库。clone 后先跑 `python gen_friction_data.py` 再生数据（seed=42，与原数据逐点一致），再 Run All |
+| **（07-27 新）Run All 后 `git status` 显示 notebook 红色 modified，但代码没改** | 只是执行序号等元数据变了，**噪声不值一笔 commit** → `git restore 01_eda.ipynb` 擦掉 |
+| **（07-27 新）`git add` 某文件被黄色提示拦下 `ignored by .gitignore`** | 先 `cat .gitignore` 看规则再决定，**别急着用 `-f` 强加**（绕过规则=埋坑）。本项目 `*.csv` 是有意为之，见 §6 数据策略 |
 
 ---
 
@@ -135,8 +142,9 @@ NAO（无石棉有机型）纤维增强树脂基摩擦材料：
 
 - 数据：**合成数据**，200 条，机理已知（生成脚本 `gen_friction_data.py` 在仓库里）
 - 数据文件：`friction_formulation.csv`（25 列 = 1 batch_id + 19 配方 + 4 工艺 + 1 wear_rate）
+- **⚠️ 数据文件不在 Git 仓库里**（07-27 策略，见 §6）：clone 后必须先 `python gen_friction_data.py` 再生
 
-### 真值机理（我自己造的，知道答案 → 用来验收模型）
+### 真值机理（我自己造的数据，知道答案 → 用来验收模型）
 
 | # | 机理 | 脚本公式 | 形状 | 验收状态 |
 |---|---|---|---|---|
@@ -187,6 +195,12 @@ NAO（无石棉有机型）纤维增强树脂基摩擦材料：
 ### 决策 E（07-18 新增）：PDP 只验形状，不细读绝对幅度
 - 所有 PDP 的幅度都系统性小于真值（收缩效应），如 post_cure 真值跨 0.42、模型只跨 0.23
 - 稀疏区（rug 竖线拉开处）的台阶高度不可细读，只读趋势
+
+### 决策 F（07-27 新增，Hans 提议）：数据文件不进 Git 仓库
+- `.gitignore` 里 `*.csv` 规则**保持不动**，`friction_formulation.csv` 不上传 GitHub
+- **理由**：仓库只存「造数据的方法」（脚本 + seed=42），不存数据本身。为将来接入**真实配方数据**（敏感资产）提前焊死防泄闸门——不管以后往项目里放什么 CSV，Git 自动拦下，想失手都难。用结构消灭失误，不靠人的记性
+- **代价与对策**：每次 clone 后必须先 `python gen_friction_data.py`，否则 Run All 报 `FileNotFoundError`
+- **已验证**：seed=42 再生数据与原数据逐点一致（07-27 M1 实测 r=0.8253 / k=0.575 复现通过）
 
 ---
 
@@ -319,6 +333,8 @@ NAO（无石棉有机型）纤维增强树脂基摩擦材料：
 13. **（07-23 新）代码里「准备+验收」的行数远多于「做 ML」的行数，这是正常的**：真正建模就 `.fit()` / `.predict()` 几行，其余全是搬数据、验数据、造清单 —— 和做试验一样，压试片几分钟，配料/称量/制样/复核占绝大部分
 14. **（07-23 新）算力不是本项目的瓶颈**：sklearn 全 CPU，GPU 零贡献；换更快的机器省的是秒，损失的是可复现性和手感
 15. **（07-25 新）取对数不是「为了凑正态」**：回归模型对 y 正态无硬要求。真正依据是「机理加性 + 噪声乘性 + 摩擦学惯例」；偏度数字只是「log 起效了」的仪表读数。**该不该取 log，回到机理和噪声的乘/加性判断，这是懂材料的价值所在**
+16. **（07-27 新）数据可复现性和代码一样硬**：脚本 + 固定种子 = 数据文件随时可精确再造（M1 实测再生数据逐点一致）。仓库存「方法」不存「数据」，既省空间又防真实数据外泄
+17. **（07-27 新）Git 极少默默弄丢东西**：遇到冲突/已忽略文件/目录已存在，它是**停下来报错**，不是覆盖或损坏。看到报错先读最后一行，通常已写明原因和出路
 
 ---
 
@@ -493,24 +509,68 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 
 ---
 
-## 6. 文件 / Git 状态
+## 6. 文件 / Git / GitHub 状态（07-27 大更新）
 
-- 仓库：`~/projects/friction-ml`（本地，**GitHub 远程未推**，SSH key 未配 → 阶段 4）
-- Commit 历史（**已全部提交，无未存工作**）：
-  ```
-  9abaa86  chore: 移除 01_eda.ipynb 中运行报错的死代码           ← 07-22
-  23a31bc  chore: 添加 environment.yml 环境配方单                ← 07-22
-  66abf49  阶段2完成：GBDT调参 + 特征重要性 + PDP机理验收 7/7   ← 07-18
-  adc681d  添加项目交接文档
-  6fe8594  基线模型：线性回归R²=0.735 vs 随机森林R²=0.627(默认参数过拟合)
-  c82e5c1  EDA：目标变量对数正态、成分闭合验证、树脂U型曲线还原(13.25 vs 真值13.0)
-  c6d920f  feat: NAO friction material formulation data generator
-  ```
-  > ML-06（07-23）、ML-07（07-25）均为纯读代码会话，未产生硬盘改动，**无新增 commit**（本文档更新除外）
+### GitHub 远程（✅ 已配通，07-27）
+
+- 远程仓库：`git@github.com:hansxiaohangcai-prog/friction-ml.git`（由 Kimi 协助在 M4 完成 SSH 配置 + 建仓 + 首次推送）
+- **双机 SSH 均已配好并验证连通**：
+  - M4：key title `MacBook Air M4`
+  - M1：key title `MacBook Air M1`（07-27 咖啡馆配置，`ssh -T` 验证通过）
+- **GitHub 是唯一真相源**；AirDrop 搬文件夹的同步方式**退役**
+- **每台机器一生只 clone 一次**，之后进入「开工 `git pull` / 收工 `git push`」模式，本地目录**常驻不删**
+- 冲突担心：单人双机串行工作 + 守住 pull/push 节奏，Git 没有打架机会。就算出状况，Git 是**停下来报错**（如「目录已存在」拒绝 clone、「本地有未提交改动」拒绝 pull），不会默默覆盖或损坏
+
+### ⚠️ M4 本地目录当前已删空（一次性状态）
+
+07-27 演示「云端可恢复」时删的。**下次回 M4 开工前**，先执行一次：
+
+```bash
+git clone git@github.com:hansxiaohangcai-prog/friction-ml.git ~/projects/friction-ml
+cd ~/projects/friction-ml && python gen_friction_data.py
+```
+
+之后 M4 进入 pull/push 常规模式，不再 clone、不再删。（M1 已是常规模式。）
+
+### 数据策略（决策 F，07-27，Hans 提议）
+
+- `friction_formulation.csv` **不进仓库**：`.gitignore` 里 `*.csv` 规则保持不动
+- 仓库只存「造数据的方法」（`gen_friction_data.py` + seed=42），不存数据本身 → 为将来真实配方数据焊死防泄闸门
+- **每次 clone 后必须先 `python gen_friction_data.py`**，否则 Run All 报 `FileNotFoundError`
+- 已验证：seed=42 再生数据逐点一致（M1 实测 r=0.8253 / k=0.575 复现通过）
+- `.gitignore` 当前内容：`*.csv` / `.ipynb_checkpoints/` / `__pycache__/` / `*.pyc` / `.DS_Store`
+
+### Git 日常节奏（07-27 定版）
+
+| 时机 | 命令 |
+|---|---|
+| 开工 | `git pull`（在 cd 进项目目录后、开 jupyter 前） |
+| 阶段成果 | ⌘S 保存 → `git add <文件>` → `git status`（确认变绿）→ `git commit -m "..."` → **`git push`** |
+| Run All 产生的元数据噪声（代码没改） | `git restore 01_eda.ipynb` 擦掉，不 commit |
+
+### Commit 历史
+
+```
+9abaa86  chore: 移除 01_eda.ipynb 中运行报错的死代码           ← 07-22
+23a31bc  chore: 添加 environment.yml 环境配方单                ← 07-22
+66abf49  阶段2完成：GBDT调参 + 特征重要性 + PDP机理验收 7/7   ← 07-18
+adc681d  添加项目交接文档
+6fe8594  基线模型：线性回归R²=0.735 vs 随机森林R²=0.627(默认参数过拟合)
+c82e5c1  EDA：目标变量对数正态、成分闭合验证、树脂U型曲线还原(13.25 vs 真值13.0)
+c6d920f  feat: NAO friction material formulation data generator
+```
+
+> 注：07-27 当天 Kimi 协助推送前还有若干笔文档提交（如 `docs: 更新交接文档`），以 GitHub 上实际历史为准。ML-06（07-23）、ML-07（07-25）为纯读代码会话，无 commit。ML-08（07-27）为配置+验证会话，除本文档更新外无代码 commit。
+
+### 文件清单
+
 - 工作文件：`01_eda.ipynb`（EDA + 基线 + 阶段2 全在里面，约 610 KB）
-- 数据：`friction_formulation.csv`、脚本 `gen_friction_data.py`、环境 `environment.yml`
-- Git 三步节奏：`git add <文件>` → `git status`（确认变绿）→ `git commit -m "..."`
-- **本文档存在三处，注意同步**：① M4 本地仓库 ② M1 本地仓库 ③ **Claude 项目知识库（最关键，靠它续接上下文，需手动替换）**
+- 脚本：`gen_friction_data.py`（数据生成器，seed=42）
+- 环境：`environment.yml`
+- 数据：`friction_formulation.csv`（**仅存本地，不进 Git**，clone 后再生）
+- **本文档存在三处，同步方式（07-27 简化）**：
+  - ① M4 本地仓库 + ② M1 本地仓库 → **靠 Git 自动同步**（一处改完 commit+push，另一处 pull 即得）
+  - ③ **Claude 项目知识库 → 仍需手动替换**（最关键，靠它续接上下文）
 
 ---
 
@@ -534,7 +594,7 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 **阶段 4：收尾**
 - [ ] log 空间 R² 如何正确解读成磨损率精度（决策 A 遗留）
 - [ ] 结论整理 / 论文图表清单
-- [ ] 配 SSH key，推 GitHub（**多机协作的正解，优先级已上调**）
+- [x] ~~配 SSH key，推 GitHub~~ ✅ **已完成（07-27）**：双机 SSH 配通，GitHub 为唯一真相源，pull/push 工作流落地，AirDrop 退役
 - [x] ~~环境可复现~~ ✅ 已完成（ML-05）：`environment.yml` 进仓库，新机 `conda env create -f environment.yml` 一键重建；M1 已配 Miniforge、mat 环境已建、Run All 复现通过
 
 **最终验收（§0.1 第 4 步，贯穿全程）**
@@ -550,19 +610,22 @@ k = np.linalg.lstsq(T_true_c.ravel()[:,None], T_model_c.ravel(), rcond=None)[0][
 - NAO摩擦材料ML-04-PDP验形状+交互项马鞍面定量验收(r=0.825)（07-18，阶段2完结）
 - NAO摩擦材料ML-05-环境迁移M4→M1(environment.yml一键重建, Run All逐点复现r=0.825)（07-22）
 - NAO摩擦材料ML-06-代码块1逐行精读(读数+闭合校验comp_cols=19)（07-23）
-- **NAO摩擦材料ML-07-EDA分布图cell精读(决策A举证:偏度3.135→0.063, 一维/二维规律, subplots骨架)（07-25，本次；确立"每cell都读"新路线）**
-- （下次）NAO摩擦材料ML-08-…（二选一，见 §9）
+- NAO摩擦材料ML-07-EDA分布图cell精读(决策A举证:偏度3.135→0.063, 一维/二维规律, subplots骨架)（07-25）
+- **NAO摩擦材料ML-08-M1接入GitHub链路(SSH+clone+CSV再生, Run All复现r=0.8253)（07-27，本次；确立数据不进仓库策略+pull/push工作流）**
+- （下次）NAO摩擦材料ML-09-…（二选一，见 §9）
 
 ---
 
 ## 9. 下次开场白（建议直接说，二选一）
 
+> ⚠️ **若下次在 M4 上开工**：M4 本地目录已删空，先按 §6 的命令 clone + 再生数据，再说开场白。M1 上开工则直接「开工四样」（含 git pull）。
+
 **选项 A —— 走支线（接着精读代码，07-25 定的默认路线）**
 
-> 「继续这个项目（ML-08）。ML-07 精读完了 EDA 分布图 cell（决策 A 举证：偏度 3.135→0.063），学习路线已改成『每个 cell 都读、不跳』（见 §0.1）。今天接着**往下滚，读 EDA cell 之后、`train_test_split` 之前的下一个 cell**（我上次滚到一半）。老规矩：一次一块、块内逐行、四问模板，我先说理解你再拧。」
+> 「继续这个项目（ML-09）。ML-08 完成了 M1 的 GitHub 接入（双机 pull/push 工作流已落地）。今天回到代码精读：接着**往下滚，读 EDA 分布图 cell 之后、`train_test_split` 之前的下一个 cell**。老规矩：一次一块、块内逐行、四问模板，我先说理解你再拧。」
 
 **选项 B —— 走主线（阶段 3，学术亮点）**
 
-> 「继续这个项目（ML-08）。阶段 2 已完结（7/7 机理找回），环境已可 `environment.yml` 一键复现，代码精读已过完块 1 + EDA 分布图 cell。今天开阶段 3：成分数据的对数比变换。先给我讲清楚**闭合数据为什么需要 CLR/ILR**、它到底治好了什么病，我听懂了再动手写代码。」
+> 「继续这个项目（ML-09）。阶段 2 已完结（7/7 机理找回），GitHub 双机同步已落地，代码精读已过完块 1 + EDA 分布图 cell。今天开阶段 3：成分数据的对数比变换。先给我讲清楚**闭合数据为什么需要 CLR/ILR**、它到底治好了什么病，我听懂了再动手写代码。」
 
 **建议**：两条线不冲突。阶段 3 是论文学术亮点，优先级更高；代码精读可在阶段 3 每次开工前当「热身」穿插做一个 cell。按 §0.1，精读现在是「每 cell 都过」，进度会比原来慢些但更扎实。
