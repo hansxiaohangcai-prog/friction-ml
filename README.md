@@ -96,12 +96,14 @@ NAO摩擦材料体系中，纤维作为增强相可以提升材料的整体强�
 
 ## 7. 如何复现
 
-git clone git@github.com:hansxiaohangcai-prog/friction-ml.git
+```bash
+git clone https://github.com/hansxiaohangcai-prog/friction-ml.git
 cd friction-ml
 conda env create -f environment.yml
 conda activate mat
 python gen_friction_data.py
 jupyter lab 01_eda.ipynb
+```
 
 ## 8. 文件说明
 
